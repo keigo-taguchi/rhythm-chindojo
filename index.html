@@ -26,6 +26,8 @@ body{background:var(--case);color:var(--paper);font-family:var(--fb);margin:0}
 canvas{display:block;width:100%;height:100%}
 .ov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2cqw;padding:2.5cqw;text-align:center;color:var(--ink);overflow:auto}
 .ov.dim{background:rgba(43,29,20,.6);color:var(--paper)}
+#ovSelect{justify-content:flex-start}
+.ov{justify-content:safe center}
 h1{font-family:var(--fd);font-weight:400;font-size:9cqw;line-height:1;margin:0;color:var(--paper);
   text-shadow:.5cqw .5cqw 0 var(--tomato),-.25cqw -.25cqw 0 var(--ink),.25cqw -.25cqw 0 var(--ink),-.25cqw .25cqw 0 var(--ink),.25cqw .25cqw 0 var(--ink);letter-spacing:.04em;text-wrap:balance}
 .sub{font-size:max(11px,2.3cqw);font-weight:800;background:var(--ink);color:var(--sun);padding:.6cqw 1.6cqw;border-radius:99px}
@@ -67,6 +69,11 @@ kbd{font-family:var(--fd);background:var(--ink);color:var(--paper);border-radius
   .card small{display:none}
 }
 
+/* ===== むずかしさ ===== */
+.diff{display:flex;gap:.8cqw;align-items:center;flex-wrap:wrap;justify-content:center;font-weight:800;font-size:max(12px,1.7cqw)}
+.diff button{font-size:max(12px,1.7cqw);padding:.5cqw 1.8cqw;background:var(--paper);box-shadow:0 .35cqw 0 var(--ink)}
+.diff button[aria-pressed="true"]{background:var(--tomato);color:#fff}
+@media (max-width:700px),(max-height:500px){.diff{gap:8px;font-size:14px}.diff button{font-size:14px;padding:8px 14px;box-shadow:0 3px 0 var(--ink)}}
 /* ===== スマホ対応 ===== */
 html,body{-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;overscroll-behavior:none}
 .quit{position:absolute;top:1.2cqw;left:1.2cqw;z-index:5;font-size:max(14px,1.8cqw);padding:.6cqw 1.6cqw;background:rgba(255,246,224,.85);box-shadow:0 .3cqw 0 var(--ink)}
@@ -75,7 +82,7 @@ body.playing{touch-action:none;user-select:none;-webkit-user-select:none}
 body.playing .help{display:none}
 /* メニュー：小さい画面では全画面のパネルにして読みやすく */
 @media (max-width:700px),(max-height:500px){
-  .ov{position:fixed;inset:0;z-index:20;padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));gap:14px;justify-content:center;overflow-y:auto}
+  .ov{position:fixed;inset:0;z-index:20;padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));gap:14px;justify-content:safe center;overflow-y:auto}
   .ov.dim{background:rgba(43,29,20,.97)}
   #ovTitle{background:radial-gradient(circle at 50% 40%,#f26d4f,#c9432a)}
   #ovSelect{justify-content:flex-start}
@@ -140,6 +147,7 @@ body.playing .help{display:none}
     </section>
 
     <section id="ovSelect" class="ov dim" hidden>
+      <div class="diff" role="group" aria-label="むずかしさ"><span>むずかしさ</span><button data-d="easy">やさしい</button><button data-d="normal">ふつう</button><button data-d="hard">むずかしい</button></div>
       <div class="grid" id="grid"></div>
       <div class="row"><button id="btnBack" class="ghost">タイトルへ</button></div>
     </section>
@@ -1807,6 +1815,11 @@ function drawFX(dt,B){
   if(FX.banner){const b=FX.banner;b.t+=dt;const k=b.t;if(k>1.6)FX.banner=null;else{const x=k<.25?lerp(-640,480,ease(k/.25)):k>1.3?lerp(480,1600,ease((k-1.3)/.3)):480;
     g.save();g.translate(x,270);g.rotate(-.07);R(-600,-52,1200,104,0,'rgba(43,29,20,.88)');for(let i=-16;i<16;i++)P([i*40,-52,i*40+20,-52,i*40,52,i*40-20,52],'rgba(255,207,63,.22)');T(b.text,0,4,66,'#ffcf3f',{font:FD,stroke:INK,lw:10});g.restore()}}
 }
+function drawGuide(B){
+  for(const n of S.notes){if(n.res)continue;const d=n.beat-B;if(d>1.2)break;if(d<0)continue;
+    const [x,y]=hitPoint(n),k=d/1.2,c=n.btn==='B'?'#5ec2e8':n.btn==='R'?'#7ed36a':'#ffcf3f';
+    g.globalAlpha=.3+.6*(1-k);E(x,y,16+k*72,16+k*72,null,INK,7);E(x,y,16+k*72,16+k*72,null,c,4);E(x,y,14,14,null,c,3);g.globalAlpha=1}
+}
 function drawIntro(B,name){
   if(B>1.1)return;
   const kIn=ease((B+2.3)/.4), kOut=B>.45?ease((B-.45)/.55):0, x=lerp(-W,0,kIn)+kOut*W*1.2;
@@ -1829,16 +1842,27 @@ let mode='title', S=null, cur=null, offsetMs=0;
 const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 offsetMs=store.get('chin-offset',0);
 let best=store.get('chin-best',{});
+// むずかしさ：テンポ・判定のゆるさ・空振りの減点・ガイド表示
+const DIFFS={
+  easy:{name:'やさしい',tempo:.9,p:.075,ok:.16,okW:.8,stray:.3,caught:3,guide:true},
+  normal:{name:'ふつう',tempo:1,p:.06,ok:.13,okW:.7,stray:.6,caught:5,guide:false},
+  hard:{name:'むずかしい',tempo:1.08,p:.04,ok:.095,okW:.5,stray:1.2,caught:8,guide:false},
+};
+let diff=store.get('chin-diff','normal');if(!DIFFS[diff])diff='normal';
+const D=()=>DIFFS[diff];
+const bestKey=id=>diff==='normal'?id:id+':'+diff;
+document.querySelectorAll('.diff button').forEach(b=>b.onclick=()=>{diff=b.dataset.d;store.set('chin-diff',diff);renderSelect()});
 
 function show(id){for(const o of['ovTitle','ovSelect','ovHow','ovResult','ovCal'])$(o).hidden=o!==id;}
 function rankOf(sc){return sc>=85?{t:'ハイレベル',c:'#ef5a3c',k:'hi'}:sc>=60?{t:'平凡',c:'#3c8a55',k:'mid'}:{t:'もう少し',c:'#4a5d7a',k:'lo'}}
 
 function renderSelect(){
+  document.querySelectorAll('.diff button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.d===diff)));
   const gr=$('grid');gr.innerHTML='';
   STAGES.forEach((st,i)=>{
     const b=document.createElement('button');b.className='card';b.id='stage-'+st.id;b.style.background=st.col;
     if(st.id==='hanko'||st.dark)b.style.color='#fff';
-    const bs=best[st.id];const r=bs!=null?rankOf(bs):null;
+    const bs=best[bestKey(st.id)];const r=bs!=null?rankOf(bs):null;
     b.innerHTML=`<span class="no">STAGE ${i+1}${st.id.startsWith('remix')?' ・ 総仕上げ':''}</span><b>${st.name}</b><small>${st.tag}</small>${r?`<span class="medal ${r.k==='hi'?'hi':''}">${r.t} ${bs}</span>`:'<span class="medal none">未プレイ</span>'}`;
     b.onclick=()=>openHow(st);gr.appendChild(b);
   });
@@ -1846,13 +1870,13 @@ function renderSelect(){
 function openHow(st){
   cur=st;$('howName').textContent=st.name;
   $('howList').innerHTML=st.how.map(s=>`<li>${s}</li>`).join('');
-  $('howKeys').innerHTML=`<span>A：<kbd>Space</kbd>／タップ${st.hold?'（長押しあり）':''}</span>`+(st.btnB?`<span>B：<kbd>F</kbd>／画面の右半分</span>`:'');
+  $('howKeys').innerHTML=`<span>A：<kbd>Space</kbd>／タップ${st.hold?'（長押しあり）':''}</span>`+(st.btnB?`<span>B：<kbd>F</kbd>／画面の右半分</span>`:'')+`<span>むずかしさ：${D().name}${D().guide?'（タイミングの輪つき）':''}</span>`;
   show('ovHow');$('btnStart').focus();
 }
 
 function startStage(st){
   audio();
-  const spb=60/st.bpm;
+  const spb=60/(st.bpm*D().tempo);
   const c={ev:[],cues:[],scenes:[{from:0,mod:st.id}],spb};
   const len=st.build(c);
   const start=AC.currentTime+.7;
@@ -1868,7 +1892,7 @@ function startStage(st){
   q.push({t:start+mEnd*spb,f:SFX.crash});
   q.sort((a,b)=>a.t-b.t);
   const byMod={};for(const e of c.ev)(byMod[e.mod]=byMod[e.mod]||[]).push(e);
-  S={st,spb,start,len,ev:c.ev,byMod,notes,q,qi:0,scenes:c.scenes,lp:{A:-99,B:-99},lr:null,hold:false,strays:0,crowStray:0,caught:0,caughtAt:null,lastJ:null,
+  S={st,spb,start,len,ev:c.ev,byMod,notes,q,qi:0,scenes:c.scenes,lp:{A:-99,B:-99},lr:null,hold:false,guide:D().guide,strays:0,crowStray:0,caught:0,caughtAt:null,lastJ:null,
     recent(mod,B){const j=this.lastJ;if(!j||j.mod!==mod||B-j.beat>1.2)return 'norm';return j.res==='m'?'shock':'happy'}};
   mode='play';show(null);if(document.activeElement)document.activeElement.blur();
   $('pads').hidden=false;$('padB').hidden=!st.btnB;$('pads').style.gridTemplateColumns=st.btnB?'1fr 1fr':'1fr';$('pads').classList.toggle('single',!st.btnB);
@@ -1929,8 +1953,8 @@ function press(btn,ev){
   let bn=null,bd=1;
   for(const n of S.notes){if(n.res||n.btn!==btn)continue;const d=t-n.time;if(Math.abs(d)<bd){bd=Math.abs(d);bn=n}if(n.time>t+.3)break}
   S.lp[btn]=B;padFlash(btn);
-  if(bn&&bd<=.11){
-    const d=t-bn.time;bn.res=Math.abs(d)<=.05?'p':'o';bn.d=d;bn.hb=B;
+  if(bn&&bd<=D().ok){
+    const d=t-bn.time;bn.res=Math.abs(d)<=D().p?'p':'o';bn.d=d;bn.hb=B;
     MODS[bn.mod].hit(bn,AC.currentTime,bn.res==='p');fxHit(bn,bn.res==='p');buzz(bn.res==='p'?12:6);
     S.lastJ={mod:bn.mod,beat:B,res:bn.res};
     if(bn.pax&&bn.last&&bn.pax.notes.every(n=>n.res==='p'||n.res==='o'))bn.pax.inAt=B;
@@ -1949,12 +1973,12 @@ function release(ev){
   const r=S.notes.find(n=>n.btn==='R'&&!n.res&&n.pair&&(n.pair.res==='p'||n.pair.res==='o'));
   if(!r)return;
   const d=t-r.time;
-  if(Math.abs(d)<=.11){r.res=Math.abs(d)<=.05?'p':'o';r.d=d;r.hb=B;MODS[r.mod].hit(r,AC.currentTime,r.res==='p');fxHit(r,r.res==='p');S.lastJ={mod:r.mod,beat:B,res:r.res}}
-  else if(d<-.11){r.res='m';r.hb=B;MODS[r.mod].miss(AC.currentTime);fxMiss();S.lastJ={mod:r.mod,beat:B,res:'m'}}
+  if(Math.abs(d)<=D().ok){r.res=Math.abs(d)<=D().p?'p':'o';r.d=d;r.hb=B;MODS[r.mod].hit(r,AC.currentTime,r.res==='p');fxHit(r,r.res==='p');S.lastJ={mod:r.mod,beat:B,res:r.res}}
+  else if(d<-D().ok){r.res='m';r.hb=B;MODS[r.mod].miss(AC.currentTime);fxMiss();S.lastJ={mod:r.mod,beat:B,res:'m'}}
 }
 function checkMiss(){
   const t=AC.currentTime-lat()-offsetMs/1000;
-  for(const n of S.notes){if(n.time>t)break;if(!n.res&&t-n.time>.11){
+  for(const n of S.notes){if(n.time>t)break;if(!n.res&&t-n.time>D().ok){
     n.res='m';n.hb=n.beat;
     if(n.pair&&n.btn==='A'&&!n.pair.res){n.pair.res='m';n.pair.hb=n.pair.beat}
     MODS[n.mod].miss(AC.currentTime);fxMiss();S.lastJ={mod:n.mod,beat:n.beat,res:'m'}}}
@@ -1963,7 +1987,7 @@ function finish(){
   leavePlay();
   mode='result';$('pads').hidden=true;
   const ns=S.notes, p=ns.filter(n=>n.res==='p').length,o=ns.filter(n=>n.res==='o').length,m=ns.filter(n=>n.res==='m').length;
-  const raw=(p+o*.6)/ns.length*100, sc=Math.max(0,Math.round(raw-S.strays*.8-S.caught*6));
+  const raw=(p+o*D().okW)/ns.length*100, sc=Math.max(0,Math.min(100,Math.round(raw-S.strays*D().stray-S.caught*D().caught)));
   const r=rankOf(sc);
   const hits=ns.filter(n=>n.d!=null), avg=hits.length?hits.reduce((a,n)=>a+n.d,0)/hits.length:0;
   let cm=S.st.cm[r.k];
@@ -1974,9 +1998,9 @@ function finish(){
   else if(ns.some(n=>n.mod==='hanko'&&n.btn==='B'&&n.res==='m'))cm+=' あやしい書類が通っちゃった。';
   else if(avg>.025)cm+=' ちょっと遅れぎみ。';
   else if(avg<-.025)cm+=' ちょっと前のめり。';
-  $('resName').textContent=S.st.name;$('resRank').textContent=r.t;const rk=$('resRank');rk.classList.remove('stamp');void rk.offsetWidth;rk.classList.add('stamp');FX.combo=0;FX.banner=null;FX.resultHi=r.k==='hi';$('resRank').style.color=r.c;$('resComment').textContent=cm;
+  $('resName').textContent=`${S.st.name}（${D().name}）`;$('resRank').textContent=r.t;const rk=$('resRank');rk.classList.remove('stamp');void rk.offsetWidth;rk.classList.add('stamp');FX.combo=0;FX.banner=null;FX.resultHi=r.k==='hi';$('resRank').style.color=r.c;$('resComment').textContent=cm;
   $('resStats').innerHTML=`<span>スコア ${sc}</span><span>ジャスト ${p}</span><span>おしい ${o}</span><span>ミス ${m}</span><span>空振り ${S.strays+S.caught}</span>`;
-  if(best[S.st.id]==null||sc>best[S.st.id]){best[S.st.id]=sc;store.set('chin-best',best)}
+  const bk=bestKey(S.st.id);if(best[bk]==null||sc>best[bk]){best[bk]=sc;store.set('chin-best',best)}
   if(r.k==='hi')SFX.cheer(AC.currentTime);
   const idx=STAGES.indexOf(S.st);$('btnNext').hidden=idx>=STAGES.length-1;
   show('ovResult');$('btnRetry').focus();
@@ -2063,6 +2087,7 @@ function loop(now){
     const sh=FX.shake;g.save();if(sh>0){g.translate((Math.random()-.5)*sh,(Math.random()-.5)*sh);FX.shake=Math.max(0,sh-dt*40)}
     MODS[mod].draw(B,S.byMod[mod]||[],S);
     g.restore();
+    if(S.guide)drawGuide(B);
     drawFX(dt,B);
     drawIntro(B,S.st.name);
     for(const sc of S.scenes){const d=B-sc.from;if(sc.from>0&&d>-.6&&d<.5){const k=d<0?ease((d+.6)/.6):1-ease(d/.5);drawWipe(k,(STAGES.find(s=>s.id===sc.mod)||{}).name||'')}}
